@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { insertPostSchema, insertCommentSchema, insertEventSchema, insertNewsSchema, insertTicketSchema, insertTicketReplySchema, insertAdminSchema, insertNewsletterSubscriberSchema, insertSellerSchema, insertSellerReviewSchema } from "@shared/mongodb-schema";
 import { generateToken, verifyAdminPassword, requireAuth, requireSuperAdmin, requireAdminOrTicketManager, comparePassword, hashPassword } from "./utils/auth";
@@ -8,6 +9,24 @@ import { calculateReadingTime, generateSummary, formatDate } from "./utils/helpe
 
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Rate limiter for image uploads - 10 uploads per hour per IP
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // Limit each IP to 10 uploads per hour
+  message: "Too many upload requests from this IP, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// General API rate limiter - 100 requests per 15 minutes
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: "Too many requests from this IP, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
@@ -641,8 +660,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Image upload route
-  app.post("/api/upload-image", requireAuth, upload.single('image'), async (req, res) => {
+  // Image upload route with rate limiting
+  app.post("/api/upload-image", uploadLimiter, requireAuth, upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No image file provided" });
