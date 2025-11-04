@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { Request, Response, NextFunction } from "express";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "SuperAdmin#2024$SecurePass!9x";
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
