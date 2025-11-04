@@ -89,6 +89,13 @@ export interface ISeller extends Document {
   description: string;
   images: string[];
   prices: { item: string; price: number }[];
+  email: string;
+  phone: string;
+  whatsapp: string;
+  discord: string;
+  website: string;
+  featured: boolean;
+  promotionText: string;
   averageRating: number;
   totalReviews: number;
   createdAt: Date;
@@ -190,6 +197,13 @@ const SellerSchema = new Schema<ISeller>({
   description: { type: String, default: '' },
   images: { type: [String], default: [] },
   prices: { type: [{ item: String, price: Number }], default: [] },
+  email: { type: String, default: '' },
+  phone: { type: String, default: '' },
+  whatsapp: { type: String, default: '' },
+  discord: { type: String, default: '' },
+  website: { type: String, default: '' },
+  featured: { type: Boolean, default: false },
+  promotionText: { type: String, default: '' },
   averageRating: { type: Number, default: 0 },
   totalReviews: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
@@ -294,6 +308,13 @@ export const insertSellerSchema = z.object({
   description: z.string().optional(),
   images: z.array(z.string()).optional(),
   prices: z.array(z.object({ item: z.string(), price: z.number() })).optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  whatsapp: z.string().optional(),
+  discord: z.string().optional(),
+  website: z.string().optional(),
+  featured: z.boolean().optional(),
+  promotionText: z.string().optional(),
 });
 
 export const insertSellerReviewSchema = z.object({
