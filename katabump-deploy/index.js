@@ -1,11 +1,12 @@
-// server/index.ts
-import express2 from "express";
-import path3 from "path";
+// server/index-production.ts
+import express from "express";
+import path from "path";
 import { fileURLToPath } from "url";
 
 // server/routes.ts
 import { createServer } from "http";
 import multer from "multer";
+import rateLimit from "express-rate-limit";
 
 // shared/mongodb-schema.ts
 import mongoose, { Schema } from "mongoose";
@@ -84,6 +85,29 @@ var NewsletterSubscriberSchema = new Schema({
   email: { type: String, required: true, unique: true },
   createdAt: { type: Date, default: Date.now }
 });
+var SellerSchema = new Schema({
+  name: { type: String, required: true },
+  description: { type: String, default: "" },
+  images: { type: [String], default: [] },
+  prices: { type: [{ item: String, price: Number }], default: [] },
+  email: { type: String, default: "" },
+  phone: { type: String, default: "" },
+  whatsapp: { type: String, default: "" },
+  discord: { type: String, default: "" },
+  website: { type: String, default: "" },
+  featured: { type: Boolean, default: false },
+  promotionText: { type: String, default: "" },
+  averageRating: { type: Number, default: 0 },
+  totalReviews: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now }
+});
+var SellerReviewSchema = new Schema({
+  sellerId: { type: String, required: true },
+  userName: { type: String, required: true },
+  rating: { type: Number, required: true, min: 1, max: 5 },
+  comment: { type: String, default: "" },
+  createdAt: { type: Date, default: Date.now }
+});
 var UserModel = mongoose.model("User", UserSchema);
 var PostModel = mongoose.model("Post", PostSchema);
 var CommentModel = mongoose.model("Comment", CommentSchema);
@@ -93,6 +117,8 @@ var TicketModel = mongoose.model("Ticket", TicketSchema);
 var TicketReplyModel = mongoose.model("TicketReply", TicketReplySchema);
 var AdminModel = mongoose.model("Admin", AdminSchema);
 var NewsletterSubscriberModel = mongoose.model("NewsletterSubscriber", NewsletterSubscriberSchema);
+var SellerModel = mongoose.model("Seller", SellerSchema);
+var SellerReviewModel = mongoose.model("SellerReview", SellerReviewSchema);
 var insertUserSchema = z.object({
   username: z.string(),
   password: z.string()
@@ -157,6 +183,25 @@ var insertAdminSchema = z.object({
 });
 var insertNewsletterSubscriberSchema = z.object({
   email: z.string().email()
+});
+var insertSellerSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  prices: z.array(z.object({ item: z.string(), price: z.number() })).optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  whatsapp: z.string().optional(),
+  discord: z.string().optional(),
+  website: z.string().optional(),
+  featured: z.boolean().optional(),
+  promotionText: z.string().optional()
+});
+var insertSellerReviewSchema = z.object({
+  sellerId: z.string(),
+  userName: z.string(),
+  rating: z.number().min(1).max(5),
+  comment: z.string().optional()
 });
 
 // server/mongodb.ts
@@ -231,20 +276,52 @@ var MongoDBStorage = class {
     return newUser;
   }
   async getAllPosts() {
-    const posts = await PostModel.find().sort({ createdAt: -1 });
-    return posts;
+    const posts = await PostModel.find().sort({ createdAt: -1 }).lean();
+    return posts.map((post) => ({
+      ...post,
+      id: String(post._id),
+      tags: post.tags || [],
+      views: post.views || 0,
+      category: post.category || "",
+      author: post.author || "Unknown"
+    }));
   }
   async getPostById(id) {
-    const post = await PostModel.findById(id);
-    return post || void 0;
+    const post = await PostModel.findById(id).lean();
+    if (!post) return void 0;
+    return {
+      ...post,
+      id: String(post._id),
+      tags: post.tags || [],
+      views: post.views || 0,
+      category: post.category || "",
+      author: post.author || "Unknown"
+    };
   }
   async createPost(post) {
     const newPost = await PostModel.create(post);
-    return newPost;
+    const lean = await PostModel.findById(newPost._id).lean();
+    if (!lean) throw new Error("Failed to create post");
+    return {
+      ...lean,
+      id: String(lean._id),
+      tags: lean.tags || [],
+      views: lean.views || 0,
+      category: lean.category || "",
+      author: lean.author || "Unknown"
+    };
   }
   async updatePost(id, post) {
-    const updated = await PostModel.findByIdAndUpdate(id, post, { new: true });
-    return updated || void 0;
+    const updated = await PostModel.findByIdAndUpdate(id, post, { new: true }).lean();
+    if (!updated) return void 0;
+    return {
+      ...updated,
+      id: String(updated._id),
+      tags: updated.tags || [],
+      views: updated.views || 0,
+      category: updated.category || "",
+      author: updated.author || "Unknown"
+    };
   }
   async deletePost(id) {
     const result = await PostModel.findByIdAndDelete(id);
@@ -262,12 +339,20 @@ var MongoDBStorage = class {
     return newComment;
   }
   async getAllEvents() {
-    const events = await EventModel.find();
-    return events;
+    const events = await EventModel.find().lean();
+    return events.map((event) => ({
+      ...event,
+      id: String(event._id)
+    }));
   }
   async createEvent(event) {
     const newEvent = await EventModel.create(event);
-    return newEvent;
+    const lean = await EventModel.findById(newEvent._id).lean();
+    if (!lean) throw new Error("Failed to create event");
+    return {
+      ...lean,
+      id: String(lean._id)
+    };
   }
   async deleteEvent(id) {
     const result = await EventModel.findByIdAndDelete(id);
@@ -333,28 +418,46 @@ var MongoDBStorage = class {
     return Array.from(this.mercenaries.values());
   }
   async getAllTickets() {
-    const tickets = await TicketModel.find().sort({ createdAt: -1 });
-    return tickets;
+    const tickets = await TicketModel.find().sort({ createdAt: -1 }).lean();
+    return tickets.map((ticket) => ({
+      ...ticket,
+      id: String(ticket._id)
+    }));
   }
   async getTicketById(id) {
-    const ticket = await TicketModel.findById(id);
-    return ticket || void 0;
+    const ticket = await TicketModel.findById(id).lean();
+    if (!ticket) return void 0;
+    return {
+      ...ticket,
+      id: String(ticket._id)
+    };
   }
   async getTicketsByEmail(email) {
-    const tickets = await TicketModel.find({ userEmail: email }).sort({ createdAt: -1 });
-    return tickets;
+    const tickets = await TicketModel.find({ userEmail: email }).sort({ createdAt: -1 }).lean();
+    return tickets.map((ticket) => ({
+      ...ticket,
+      id: String(ticket._id)
+    }));
   }
   async createTicket(ticket) {
     const newTicket = await TicketModel.create(ticket);
-    return newTicket;
+    const ticketObj = await TicketModel.findById(newTicket._id).lean();
+    return {
+      ...ticketObj,
+      id: String(ticketObj._id)
+    };
   }
   async updateTicket(id, ticket) {
     const updated = await TicketModel.findByIdAndUpdate(
       id,
       { ...ticket, updatedAt: /* @__PURE__ */ new Date() },
       { new: true }
-    );
-    return updated || void 0;
+    ).lean();
+    if (!updated) return void 0;
+    return {
+      ...updated,
+      id: String(updated._id)
+    };
   }
   async deleteTicket(id) {
     const result = await TicketModel.findByIdAndDelete(id);
@@ -369,36 +472,63 @@ var MongoDBStorage = class {
     return newReply;
   }
   async getAllAdmins() {
-    const admins = await AdminModel.find().sort({ createdAt: -1 });
-    return admins;
+    const admins = await AdminModel.find().sort({ createdAt: -1 }).lean();
+    return admins.map((admin) => ({
+      ...admin,
+      id: String(admin._id)
+    }));
   }
   async getAdminById(id) {
-    const admin = await AdminModel.findById(id);
-    return admin || void 0;
+    const admin = await AdminModel.findById(id).lean();
+    if (!admin) return void 0;
+    return {
+      ...admin,
+      id: String(admin._id)
+    };
   }
   async getAdminByUsername(username) {
-    const admin = await AdminModel.findOne({ username });
-    return admin || void 0;
+    const admin = await AdminModel.findOne({ username }).lean();
+    if (!admin) return void 0;
+    return {
+      ...admin,
+      id: String(admin._id)
+    };
   }
   async createAdmin(admin) {
     const newAdmin = await AdminModel.create(admin);
-    return newAdmin;
+    const adminObj = await AdminModel.findById(newAdmin._id).lean();
+    return {
+      ...adminObj,
+      id: String(adminObj._id)
+    };
   }
   async updateAdmin(id, admin) {
-    const updated = await AdminModel.findByIdAndUpdate(id, admin, { new: true });
-    return updated || void 0;
+    const updated = await AdminModel.findByIdAndUpdate(id, admin, { new: true }).lean();
+    if (!updated) return void 0;
+    return {
+      ...updated,
+      id: String(updated._id)
+    };
   }
   async deleteAdmin(id) {
     const result = await AdminModel.findByIdAndDelete(id);
     return !!result;
   }
   async getEventById(id) {
-    const event = await EventModel.findById(id);
-    return event || void 0;
+    const event = await EventModel.findById(id).lean();
+    if (!event) return void 0;
+    return {
+      ...event,
+      id: String(event._id)
+    };
   }
   async updateEvent(id, event) {
-    const updated = await EventModel.findByIdAndUpdate(id, event, { new: true });
-    return updated || void 0;
+    const updated = await EventModel.findByIdAndUpdate(id, event, { new: true }).lean();
+    if (!updated) return void 0;
+    return {
+      ...updated,
+      id: String(updated._id)
+    };
   }
   async getAllNewsletterSubscribers() {
     const subscribers = await NewsletterSubscriberModel.find().sort({ createdAt: -1 });
@@ -416,6 +546,85 @@ var MongoDBStorage = class {
     const result = await NewsletterSubscriberModel.findByIdAndDelete(id);
     return !!result;
   }
+  async getAllSellers() {
+    const sellers = await SellerModel.find().sort({ createdAt: -1 }).lean();
+    return sellers.map((seller) => ({
+      ...seller,
+      id: String(seller._id),
+      images: seller.images || [],
+      prices: seller.prices || [],
+      averageRating: seller.averageRating || 0,
+      totalReviews: seller.totalReviews || 0
+    }));
+  }
+  async getSellerById(id) {
+    const seller = await SellerModel.findById(id).lean();
+    if (!seller) return void 0;
+    return {
+      ...seller,
+      id: String(seller._id),
+      images: seller.images || [],
+      prices: seller.prices || [],
+      averageRating: seller.averageRating || 0,
+      totalReviews: seller.totalReviews || 0
+    };
+  }
+  async createSeller(seller) {
+    const newSeller = await SellerModel.create(seller);
+    const lean = await SellerModel.findById(newSeller._id).lean();
+    if (!lean) throw new Error("Failed to create seller");
+    return {
+      ...lean,
+      id: String(lean._id),
+      images: lean.images || [],
+      prices: lean.prices || [],
+      averageRating: lean.averageRating || 0,
+      totalReviews: lean.totalReviews || 0
+    };
+  }
+  async updateSeller(id, seller) {
+    const updated = await SellerModel.findByIdAndUpdate(id, seller, { new: true }).lean();
+    if (!updated) return void 0;
+    return {
+      ...updated,
+      id: String(updated._id),
+      images: updated.images || [],
+      prices: updated.prices || [],
+      averageRating: updated.averageRating || 0,
+      totalReviews: updated.totalReviews || 0
+    };
+  }
+  async deleteSeller(id) {
+    const result = await SellerModel.findByIdAndDelete(id);
+    await SellerReviewModel.deleteMany({ sellerId: id });
+    return !!result;
+  }
+  async getSellerReviews(sellerId) {
+    const reviews = await SellerReviewModel.find({ sellerId }).sort({ createdAt: -1 }).lean();
+    return reviews.map((review) => ({
+      ...review,
+      id: String(review._id)
+    }));
+  }
+  async createSellerReview(review) {
+    const newReview = await SellerReviewModel.create(review);
+    await this.updateSellerRating(review.sellerId);
+    const lean = await SellerReviewModel.findById(newReview._id).lean();
+    if (!lean) throw new Error("Failed to create review");
+    return {
+      ...lean,
+      id: String(lean._id)
+    };
+  }
+  async updateSellerRating(sellerId) {
+    const reviews = await SellerReviewModel.find({ sellerId });
+    const totalReviews = reviews.length;
+    const averageRating = totalReviews > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews : 0;
+    await SellerModel.findByIdAndUpdate(sellerId, {
+      averageRating: Math.round(averageRating * 10) / 10,
+      totalReviews
+    });
+  }
 };
 
 // server/storage.ts
@@ -425,7 +634,7 @@ var storage = new MongoDBStorage();
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 var JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
-var ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+var ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "SuperAdmin#2024$SecurePass!9x";
 async function hashPassword(password) {
   return bcrypt.hash(password, 10);
 }
@@ -505,188 +714,26 @@ function formatDate(date) {
   }
 }
 
-// server/scraper.ts
-import * as cheerio from "cheerio";
-var Z8GamesScraper = class {
-  EVENTS_URL = "https://crossfire.z8games.com/events.html";
-  FORUM_BASE_URL = "https://forum.z8games.com";
-  extractImageUrl($el, baseUrl = "https://z8games.akamaized.net") {
-    let imageUrl = "";
-    const $img = $el.find("img").first();
-    if ($img.length > 0) {
-      imageUrl = $img.attr("src") || $img.attr("data-src") || $img.attr("data-original") || $img.attr("srcset")?.split(",")[0]?.trim()?.split(" ")[0] || "";
-      if (!imageUrl) {
-        const imgStyle = $img.attr("style") || "";
-        const bgMatch = imgStyle.match(/background-image:\s*url\(['"]?([^'"]+)['"]?\)/i);
-        if (bgMatch) {
-          imageUrl = bgMatch[1];
-        }
-      }
-    }
-    if (!imageUrl) {
-      const elementStyle = $el.attr("style") || "";
-      const bgMatch = elementStyle.match(/background-image:\s*url\(['"]?([^'"]+)['"]?\)/i);
-      if (bgMatch) {
-        imageUrl = bgMatch[1];
-      }
-    }
-    if (!imageUrl) {
-      const $bgElement = $el.find('[style*="background-image"]').first();
-      if ($bgElement.length > 0) {
-        const bgStyle = $bgElement.attr("style") || "";
-        const bgMatch = bgStyle.match(/background-image:\s*url\(['"]?([^'"]+)['"]?\)/i);
-        if (bgMatch) {
-          imageUrl = bgMatch[1];
-        }
-      }
-    }
-    if (!imageUrl) {
-      imageUrl = $el.attr("data-background") || $el.attr("data-bg") || $el.attr("data-image") || "";
-      if (!imageUrl) {
-        const $dataEl = $el.find("[data-background], [data-bg], [data-image]").first();
-        if ($dataEl.length > 0) {
-          imageUrl = $dataEl.attr("data-background") || $dataEl.attr("data-bg") || $dataEl.attr("data-image") || "";
-        }
-      }
-    }
-    if (!imageUrl) return "";
-    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
-      return imageUrl;
-    }
-    if (imageUrl.startsWith("/")) {
-      return `${baseUrl}${imageUrl}`;
-    }
-    return imageUrl;
-  }
-  fixHtmlContentUrls(htmlContent, baseUrl = "https://forum.z8games.com") {
-    return htmlContent.replace(/src="(\/[^"]+)"/g, `src="${baseUrl}$1"`).replace(/src='(\/[^']+)'/g, `src='${baseUrl}$1'`).replace(/data-src="(\/[^"]+)"/g, `data-src="${baseUrl}$1"`).replace(/data-src='(\/[^']+)'/g, `data-src='${baseUrl}$1'`).replace(/data-original="(\/[^"]+)"/g, `data-original="${baseUrl}$1"`).replace(/data-original='(\/[^']+)'/g, `data-original='${baseUrl}$1'`);
-  }
-  async scrapeEvents() {
-    try {
-      const response = await fetch(this.EVENTS_URL);
-      const html = await response.text();
-      const $ = cheerio.load(html);
-      const events = [];
-      $('.event-card, .event-item, [class*="event"]').each((_, element) => {
-        const $el = $(element);
-        const title = $el.find('h3, h2, .event-title, [class*="title"]').first().text().trim();
-        const description = $el.find('p, .event-description, [class*="description"]').first().text().trim();
-        const dateText = $el.find('.event-date, [class*="date"], h4').first().text().trim();
-        const imageUrl = this.extractImageUrl($el);
-        if (title && title.length > 3) {
-          events.push({
-            title,
-            description: description || title,
-            date: dateText || "Ongoing",
-            type: dateText.toLowerCase().includes("ongoing") ? "ongoing" : "upcoming",
-            image: imageUrl
-          });
-        }
-      });
-      return events.filter(
-        (event, index, self) => index === self.findIndex((e) => e.title === event.title)
-      );
-    } catch (error) {
-      console.error("Error scraping events:", error);
-      return [];
-    }
-  }
-  async scrapeForumAnnouncements(forumUrl) {
-    try {
-      const url = forumUrl || `${this.FORUM_BASE_URL}/categories/crossfire-announcements`;
-      const response = await fetch(url);
-      const html = await response.text();
-      const $ = cheerio.load(html);
-      const newsItems = [];
-      $('article, .discussion, [class*="Discussion"]').each((_, element) => {
-        const $el = $(element);
-        const title = $el.find('h1, h2, h3, .discussion-title, [class*="Title"]').first().text().trim();
-        const contentElement = $el.find('.discussion-content, [class*="Message"]').first();
-        const content = contentElement.text().trim();
-        let htmlContent = contentElement.html() || "";
-        htmlContent = this.fixHtmlContentUrls(htmlContent);
-        const author = $el.find('.author, [class*="Author"], [class*="GM"]').first().text().trim() || "GM Xenon";
-        const dateText = $el.find('time, .date, [class*="Date"]').first().text().trim();
-        const imageUrl = this.extractImageUrl($el, this.FORUM_BASE_URL);
-        if (title && title.length > 5) {
-          newsItems.push({
-            title,
-            dateRange: dateText || (/* @__PURE__ */ new Date()).toLocaleDateString(),
-            image: imageUrl,
-            category: "Announcements",
-            content: content || title,
-            htmlContent,
-            author: author.replace(/\[GM\]/gi, "").trim() || "GM Xenon"
-          });
-        }
-      });
-      return newsItems.filter(
-        (news, index, self) => index === self.findIndex((n) => n.title === news.title)
-      ).slice(0, 10);
-    } catch (error) {
-      console.error("Error scraping forum announcements:", error);
-      return [];
-    }
-  }
-  async scrapeSpecificForum(discussionUrl) {
-    try {
-      const response = await fetch(discussionUrl);
-      const html = await response.text();
-      const $ = cheerio.load(html);
-      const title = $("h1").first().text().trim();
-      const contentElement = $('article, .Message, [class*="Message"]').first();
-      const content = contentElement.text().trim();
-      let htmlContent = contentElement.html() || "";
-      htmlContent = this.fixHtmlContentUrls(htmlContent);
-      const author = $('.author, [class*="Author"]').first().text().trim() || "GM Xenon";
-      const dateText = $("time").first().text().trim();
-      const imageUrl = this.extractImageUrl(contentElement, this.FORUM_BASE_URL);
-      if (!title) return null;
-      return {
-        title,
-        dateRange: dateText || (/* @__PURE__ */ new Date()).toLocaleDateString(),
-        image: imageUrl,
-        category: "News",
-        content: content || title,
-        htmlContent,
-        author: author.replace(/\[GM\]/gi, "").trim() || "GM Xenon"
-      };
-    } catch (error) {
-      console.error("Error scraping specific forum:", error);
-      return null;
-    }
-  }
-  convertToInsertEvent(scraped) {
-    const mappedType = scraped.type === "ongoing" ? "trending" : scraped.type;
-    return {
-      title: scraped.title,
-      titleAr: scraped.title,
-      description: scraped.description,
-      descriptionAr: scraped.description,
-      date: scraped.date,
-      type: mappedType,
-      image: scraped.image
-    };
-  }
-  convertToInsertNews(scraped) {
-    return {
-      title: scraped.title,
-      titleAr: scraped.title,
-      dateRange: scraped.dateRange,
-      image: scraped.image,
-      category: scraped.category,
-      content: scraped.content,
-      contentAr: scraped.content,
-      htmlContent: scraped.htmlContent || scraped.content,
-      author: scraped.author,
-      featured: false
-    };
-  }
-};
-var scraper = new Z8GamesScraper();
-
 // server/routes.ts
 var upload = multer({ storage: multer.memoryStorage() });
+var uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1e3,
+  // 1 hour
+  max: 10,
+  // Limit each IP to 10 uploads per hour
+  message: "Too many upload requests from this IP, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false
+});
+var apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1e3,
+  // 15 minutes
+  max: 100,
+  // Limit each IP to 100 requests per windowMs
+  message: "Too many requests from this IP, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false
+});
 async function registerRoutes(app2) {
   app2.post("/api/auth/login", async (req, res) => {
     try {
@@ -1189,7 +1236,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: error.message });
     }
   });
-  app2.post("/api/upload-image", requireAuth, upload.single("image"), async (req, res) => {
+  app2.post("/api/upload-image", uploadLimiter, requireAuth, upload.single("image"), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No image file provided" });
@@ -1211,101 +1258,73 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: error.message });
     }
   });
-  app2.post("/api/scrape/events", requireAuth, async (req, res) => {
+  app2.get("/api/sellers", async (req, res) => {
     try {
-      const { selectedItems } = req.body;
-      const scrapedEvents = selectedItems || await scraper.scrapeEvents();
-      const existingEvents = await storage.getAllEvents();
-      const createdEvents = [];
-      let skippedCount = 0;
-      for (const scrapedEvent of scrapedEvents) {
-        const eventData = scraper.convertToInsertEvent(scrapedEvent);
-        const isDuplicate = existingEvents.some(
-          (existing) => existing.title.toLowerCase() === eventData.title.toLowerCase()
-        );
-        if (!isDuplicate) {
-          const event = await storage.createEvent(eventData);
-          createdEvents.push(event);
-        } else {
-          skippedCount++;
-        }
-      }
-      res.json({
-        success: true,
-        count: createdEvents.length,
-        skipped: skippedCount,
-        events: createdEvents
-      });
+      const sellers = await storage.getAllSellers();
+      res.json(sellers);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   });
-  app2.post("/api/scrape/news", requireAuth, async (req, res) => {
+  app2.get("/api/sellers/:id", async (req, res) => {
     try {
-      const { url, selectedItems } = req.body;
-      let scrapedNews = [];
-      if (selectedItems) {
-        scrapedNews = selectedItems;
-      } else if (url) {
-        const singleNews = await scraper.scrapeSpecificForum(url);
-        if (singleNews) {
-          scrapedNews.push(singleNews);
-        }
-      } else {
-        scrapedNews = await scraper.scrapeForumAnnouncements();
+      const seller = await storage.getSellerById(req.params.id);
+      if (!seller) {
+        return res.status(404).json({ error: "Seller not found" });
       }
-      const existingNews = await storage.getAllNews();
-      const createdNews = [];
-      let skippedCount = 0;
-      for (const newsItem of scrapedNews) {
-        const newsData = scraper.convertToInsertNews(newsItem);
-        const isDuplicate = existingNews.some(
-          (existing) => existing.title.toLowerCase() === newsData.title.toLowerCase()
-        );
-        if (!isDuplicate) {
-          const news = await storage.createNews(newsData);
-          createdNews.push(news);
-        } else {
-          skippedCount++;
-        }
-      }
-      res.json({
-        success: true,
-        count: createdNews.length,
-        skipped: skippedCount,
-        news: createdNews
-      });
+      res.json(seller);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   });
-  app2.get("/api/scrape/preview/events", requireAuth, async (req, res) => {
+  app2.post("/api/sellers", requireAuth, async (req, res) => {
     try {
-      const scrapedEvents = await scraper.scrapeEvents();
-      res.json({
-        count: scrapedEvents.length,
-        events: scrapedEvents
-      });
+      const data = insertSellerSchema.parse(req.body);
+      const seller = await storage.createSeller(data);
+      res.json(seller);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   });
-  app2.get("/api/scrape/preview/news", requireAuth, async (req, res) => {
+  app2.patch("/api/sellers/:id", requireAuth, async (req, res) => {
     try {
-      const { url } = req.query;
-      let scrapedNews = [];
-      if (url) {
-        const singleNews = await scraper.scrapeSpecificForum(url);
-        if (singleNews) {
-          scrapedNews.push(singleNews);
-        }
-      } else {
-        scrapedNews = await scraper.scrapeForumAnnouncements();
+      const data = insertSellerSchema.partial().parse(req.body);
+      const seller = await storage.updateSeller(req.params.id, data);
+      if (!seller) {
+        return res.status(404).json({ error: "Seller not found" });
       }
-      res.json({
-        count: scrapedNews.length,
-        news: scrapedNews
+      res.json(seller);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.delete("/api/sellers/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteSeller(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Seller not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/sellers/:id/reviews", async (req, res) => {
+    try {
+      const reviews = await storage.getSellerReviews(req.params.id);
+      res.json(reviews);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.post("/api/sellers/:id/reviews", async (req, res) => {
+    try {
+      const data = insertSellerReviewSchema.parse({
+        ...req.body,
+        sellerId: req.params.id
       });
+      const review = await storage.createSellerReview(data);
+      res.json(review);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -1314,53 +1333,8 @@ async function registerRoutes(app2) {
   return httpServer;
 }
 
-// server/vite.ts
-import express from "express";
-import fs from "fs";
-import path2 from "path";
-import { createServer as createViteServer, createLogger } from "vite";
-
-// vite.config.ts
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-var vite_config_default = defineConfig({
-  plugins: [
-    react(),
-    runtimeErrorOverlay(),
-    ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
-      await import("@replit/vite-plugin-cartographer").then(
-        (m) => m.cartographer()
-      ),
-      await import("@replit/vite-plugin-dev-banner").then(
-        (m) => m.devBanner()
-      )
-    ] : []
-  ],
-  resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets")
-    }
-  },
-  root: path.resolve(import.meta.dirname, "client"),
-  build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
-    emptyOutDir: true
-  },
-  server: {
-    fs: {
-      strict: true,
-      deny: ["**/.*"]
-    }
-  }
-});
-
-// server/vite.ts
-import { nanoid } from "nanoid";
-var viteLogger = createLogger();
+// server/index-production.ts
+var app = express();
 function log(message, source = "express") {
   const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -1370,72 +1344,15 @@ function log(message, source = "express") {
   });
   console.log(`${formattedTime} [${source}] ${message}`);
 }
-async function setupVite(app2, server) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true
-  };
-  const vite = await createViteServer({
-    ...vite_config_default,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      }
-    },
-    server: serverOptions,
-    appType: "custom"
-  });
-  app2.use(vite.middlewares);
-  app2.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
-    try {
-      const clientTemplate = path2.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html"
-      );
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      vite.ssrFixStacktrace(e);
-      next(e);
-    }
-  });
-}
-function serveStatic(app2) {
-  const distPath = path2.resolve(import.meta.dirname, "public");
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`
-    );
-  }
-  app2.use(express.static(distPath));
-  app2.use("*", (_req, res) => {
-    res.sendFile(path2.resolve(distPath, "index.html"));
-  });
-}
-
-// server/index.ts
-var app = express2();
-app.use(express2.json({
+app.use(express.json({
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   }
 }));
-app.use(express2.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false }));
 app.use((req, res, next) => {
   const start = Date.now();
-  const path4 = req.path;
+  const path2 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -1444,8 +1361,8 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path4.startsWith("/api")) {
-      let logLine = `${req.method} ${path4} ${res.statusCode} in ${duration}ms`;
+    if (path2.startsWith("/api")) {
+      let logLine = `${req.method} ${path2} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -1460,26 +1377,30 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
   const currentFile = fileURLToPath(import.meta.url);
-  const currentDir = path3.dirname(currentFile);
-  const assetsPath = path3.resolve(currentDir, "..", "attached_assets");
-  app.use("/assets", express2.static(assetsPath));
+  const currentDir = path.dirname(currentFile);
+  const assetsPath = path.resolve(currentDir, "..", "attached_assets");
+  app.use("/assets", express.static(assetsPath));
   app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     res.status(status).json({ message });
     throw err;
   });
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-  const port = parseInt(process.env.PORT || "5000", 10);
+  app.get("*", (_req, res) => {
+    res.status(404).json({
+      message: "API endpoint not found. Frontend is hosted on Netlify.",
+      hint: "Make sure your frontend is pointing to this backend URL"
+    });
+  });
+  const port = parseInt(process.env.PORT || "25539", 10);
   server.listen({
     port,
     host: "0.0.0.0",
     reusePort: true
   }, () => {
-    log(`serving on port ${port}`);
+    log(`\u{1F680} Backend API server running on port ${port}`);
+    log(`\u{1F4E1} Serving API endpoints at /api/*`);
+    log(`\u{1F5BC}\uFE0F  Serving assets at /assets/*`);
+    log(`\u{1F310} Frontend should be deployed to Netlify`);
   });
 })();
