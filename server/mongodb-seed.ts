@@ -19,12 +19,12 @@ async function seedMongoDB() {
       {
         username: 'bavly',
         password: await bcrypt.hash('bavly2025x1', 10),
-        role: 'super_admin'
+        role: 'admin'
       },
       {
         username: 'highway',
         password: await bcrypt.hash('highway2025', 10),
-        role: 'super_admin'
+        role: 'admin'
       }
     ];
 

@@ -25,12 +25,12 @@ async function seed() {
     {
       username: 'bavly',
       password: bavlyPassword,
-      role: 'super_admin'
+      role: 'admin'
     },
     {
       username: 'highway',
       password: highwayPassword,
-      role: 'super_admin'
+      role: 'admin'
     }
   ]).onConflictDoNothing();
 
