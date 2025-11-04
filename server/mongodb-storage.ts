@@ -370,28 +370,47 @@ export class MongoDBStorage implements IStorage {
   }
 
   async getAllAdmins(): Promise<Admin[]> {
-    const admins = await AdminModel.find().sort({ createdAt: -1 });
-    return admins;
+    const admins = await AdminModel.find().sort({ createdAt: -1 }).lean();
+    return admins.map(admin => ({
+      ...admin,
+      id: String(admin._id),
+    })) as any;
   }
 
   async getAdminById(id: string): Promise<Admin | undefined> {
-    const admin = await AdminModel.findById(id);
-    return admin || undefined;
+    const admin = await AdminModel.findById(id).lean();
+    if (!admin) return undefined;
+    return {
+      ...admin,
+      id: String(admin._id),
+    } as any;
   }
 
   async getAdminByUsername(username: string): Promise<Admin | undefined> {
-    const admin = await AdminModel.findOne({ username });
-    return admin || undefined;
+    const admin = await AdminModel.findOne({ username }).lean();
+    if (!admin) return undefined;
+    return {
+      ...admin,
+      id: String(admin._id),
+    } as any;
   }
 
   async createAdmin(admin: InsertAdmin): Promise<Admin> {
     const newAdmin = await AdminModel.create(admin);
-    return newAdmin;
+    const adminObj = await AdminModel.findById(newAdmin._id).lean();
+    return {
+      ...adminObj,
+      id: String(adminObj!._id),
+    } as any;
   }
 
   async updateAdmin(id: string, admin: Partial<InsertAdmin>): Promise<Admin | undefined> {
-    const updated = await AdminModel.findByIdAndUpdate(id, admin, { new: true });
-    return updated || undefined;
+    const updated = await AdminModel.findByIdAndUpdate(id, admin, { new: true }).lean();
+    if (!updated) return undefined;
+    return {
+      ...updated,
+      id: String(updated._id),
+    } as any;
   }
 
   async deleteAdmin(id: string): Promise<boolean> {
