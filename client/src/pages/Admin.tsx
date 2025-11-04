@@ -402,6 +402,29 @@ export default function Admin() {
     },
   });
 
+  const updateTicketMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      apiRequest(`/api/tickets/${id}`, "PATCH", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
+      toast({ title: "Ticket updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update ticket", variant: "destructive" });
+    },
+  });
+
+  const deleteTicketMutation = useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/tickets/${id}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
+      toast({ title: "Ticket deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete ticket", variant: "destructive" });
+    },
+  });
+
   const uploadImageMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -536,6 +559,9 @@ export default function Admin() {
         break;
       case "subscriber":
         deleteSubscriberMutation.mutate(deleteConfirmId);
+        break;
+      case "ticket":
+        deleteTicketMutation.mutate(deleteConfirmId);
         break;
     }
     
@@ -1862,10 +1888,89 @@ export default function Admin() {
           <TabsContent value="tickets" className="space-y-6" data-testid="content-tickets">
             <h2 className="text-2xl font-semibold">Support Tickets</h2>
             <Card>
-              <CardContent className="p-6">
-                <p className="text-muted-foreground text-center">
-                  Ticket management system is available. Check the existing ticket management section for full functionality.
-                </p>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tickets?.map((ticket: any) => (
+                      <TableRow key={ticket.id} data-testid={`ticket-row-${ticket.id}`}>
+                        <TableCell className="font-medium max-w-xs truncate">{ticket.title}</TableCell>
+                        <TableCell>{ticket.userName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">{ticket.category}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <select
+                            value={ticket.status}
+                            onChange={(e) => {
+                              updateTicketMutation.mutate({
+                                id: ticket.id,
+                                data: { status: e.target.value }
+                              });
+                            }}
+                            className="h-9 px-3 rounded-md border border-input bg-background text-sm"
+                            data-testid={`select-ticket-status-${ticket.id}`}
+                          >
+                            <option value="open">Open</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="closed">Closed</option>
+                          </select>
+                        </TableCell>
+                        <TableCell>
+                          <select
+                            value={ticket.priority}
+                            onChange={(e) => {
+                              updateTicketMutation.mutate({
+                                id: ticket.id,
+                                data: { priority: e.target.value }
+                              });
+                            }}
+                            className="h-9 px-3 rounded-md border border-input bg-background text-sm"
+                            data-testid={`select-ticket-priority-${ticket.id}`}
+                          >
+                            <option value="low">Low</option>
+                            <option value="normal">Normal</option>
+                            <option value="high">High</option>
+                          </select>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {ticket.createdAt}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setDeleteConfirmId(ticket.id);
+                              setDeleteType("ticket");
+                            }}
+                            data-testid={`button-delete-ticket-${ticket.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {(!tickets || tickets.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          No support tickets found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>

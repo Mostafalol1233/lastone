@@ -239,13 +239,21 @@ export class MongoDBStorage implements IStorage {
   }
 
   async getAllEvents(): Promise<Event[]> {
-    const events = await EventModel.find();
-    return events;
+    const events = await EventModel.find().lean();
+    return events.map(event => ({
+      ...event,
+      id: String(event._id),
+    })) as any;
   }
 
   async createEvent(event: InsertEvent): Promise<Event> {
     const newEvent = await EventModel.create(event);
-    return newEvent;
+    const lean = await EventModel.findById(newEvent._id).lean();
+    if (!lean) throw new Error('Failed to create event');
+    return {
+      ...lean,
+      id: String(lean._id),
+    } as any;
   }
 
   async deleteEvent(id: string): Promise<boolean> {
@@ -392,13 +400,21 @@ export class MongoDBStorage implements IStorage {
   }
 
   async getEventById(id: string): Promise<Event | undefined> {
-    const event = await EventModel.findById(id);
-    return event || undefined;
+    const event = await EventModel.findById(id).lean();
+    if (!event) return undefined;
+    return {
+      ...event,
+      id: String(event._id),
+    } as any;
   }
 
   async updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined> {
-    const updated = await EventModel.findByIdAndUpdate(id, event, { new: true });
-    return updated || undefined;
+    const updated = await EventModel.findByIdAndUpdate(id, event, { new: true }).lean();
+    if (!updated) return undefined;
+    return {
+      ...updated,
+      id: String(updated._id),
+    } as any;
   }
 
   async getAllNewsletterSubscribers(): Promise<NewsletterSubscriber[]> {
