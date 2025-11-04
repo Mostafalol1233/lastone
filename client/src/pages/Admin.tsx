@@ -786,10 +786,10 @@ export default function Admin() {
                       className="w-full h-9 px-3 rounded-md border border-input bg-background"
                       data-testid="select-post-category"
                     >
-                      <option>Tutorials</option>
-                      <option>News</option>
-                      <option>Reviews</option>
-                      <option>Events</option>
+                      <option value="Tutorials">Tutorials</option>
+                      <option value="News">News</option>
+                      <option value="Reviews">Reviews</option>
+                      <option value="Events">Events</option>
                     </select>
                     <Input
                       placeholder="Tags (comma separated)"
@@ -1845,7 +1845,7 @@ export default function Admin() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      {!subscribers || subscribers.length === 0 && (
+                      {(!subscribers || subscribers.length === 0) && (
                         <TableRow>
                           <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
                             No subscribers yet
