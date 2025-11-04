@@ -86,7 +86,7 @@ export default function Sellers() {
                 key={idx}
                 src={image}
                 alt={`${seller.name} ${idx + 1}`}
-                className="w-full h-32 object-cover rounded-md"
+                className="w-full h-32 object-contain rounded-md bg-muted/30"
                 data-testid={`img-seller-${seller.id}-${idx}`}
               />
             ))}
@@ -213,7 +213,7 @@ export default function Sellers() {
                         key={idx}
                         src={image}
                         alt={`${selectedSeller.name} ${idx + 1}`}
-                        className="w-full h-48 object-cover rounded-md"
+                        className="w-full h-48 object-contain rounded-md bg-muted/30"
                         data-testid={`dialog-img-seller-${selectedSeller.id}-${idx}`}
                       />
                     ))}
