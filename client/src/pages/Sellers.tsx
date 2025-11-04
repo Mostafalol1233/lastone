@@ -82,13 +82,14 @@ export default function Sellers() {
         {seller.images.length > 0 && (
           <div className="grid grid-cols-2 gap-2">
             {seller.images.slice(0, 4).map((image, idx) => (
-              <img
-                key={idx}
-                src={image}
-                alt={`${seller.name} ${idx + 1}`}
-                className="w-full h-32 object-contain rounded-md bg-muted/30"
-                data-testid={`img-seller-${seller.id}-${idx}`}
-              />
+              <div key={idx} className="flex items-center justify-center">
+                <img
+                  src={image}
+                  alt={`${seller.name} ${idx + 1}`}
+                  className="w-full h-48 object-contain rounded-md bg-muted/30"
+                  data-testid={`img-seller-${seller.id}-${idx}`}
+                />
+              </div>
             ))}
           </div>
         )}
@@ -209,13 +210,14 @@ export default function Sellers() {
                   <h3 className="font-semibold">Images</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {selectedSeller.images.map((image, idx) => (
-                      <img
-                        key={idx}
-                        src={image}
-                        alt={`${selectedSeller.name} ${idx + 1}`}
-                        className="w-full h-48 object-contain rounded-md bg-muted/30"
-                        data-testid={`dialog-img-seller-${selectedSeller.id}-${idx}`}
-                      />
+                      <div key={idx} className="flex items-center justify-center">
+                        <img
+                          src={image}
+                          alt={`${selectedSeller.name} ${idx + 1}`}
+                          className="w-full h-64 object-contain rounded-md bg-muted/30"
+                          data-testid={`dialog-img-seller-${selectedSeller.id}-${idx}`}
+                        />
+                      </div>
                     ))}
                   </div>
                 </div>
