@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
 import { useLanguage } from "./LanguageProvider";
 import { useState } from "react";
-import logoImage from "@assets/generated_images/Bimora_gaming_header_logo_25257491.png";
+import logoImage from "@assets/generated_images/Bimora_favicon_icon_f416a2cf.png";
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
