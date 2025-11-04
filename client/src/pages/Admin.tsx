@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -136,6 +137,13 @@ export default function Admin() {
     description: "",
     images: "",
     prices: "",
+    email: "",
+    phone: "",
+    whatsapp: "",
+    discord: "",
+    website: "",
+    featured: false,
+    promotionText: "",
   });
 
   const [adminForm, setAdminForm] = useState({
@@ -470,6 +478,13 @@ export default function Admin() {
       description: "",
       images: "",
       prices: "",
+      email: "",
+      phone: "",
+      whatsapp: "",
+      discord: "",
+      website: "",
+      featured: false,
+      promotionText: "",
     });
   };
 
@@ -1319,6 +1334,15 @@ export default function Admin() {
                       data-testid="input-seller-description"
                     />
                     <Textarea
+                      placeholder="Promotion Text (optional)"
+                      value={sellerForm.promotionText}
+                      onChange={(e) =>
+                        setSellerForm({ ...sellerForm, promotionText: e.target.value })
+                      }
+                      rows={2}
+                      data-testid="input-seller-promotion"
+                    />
+                    <Textarea
                       placeholder="Image URLs (comma-separated)"
                       value={sellerForm.images}
                       onChange={(e) =>
@@ -1336,11 +1360,71 @@ export default function Admin() {
                       rows={5}
                       data-testid="input-seller-prices"
                     />
+                    <div className="space-y-3 border-t pt-4">
+                      <h3 className="text-sm font-medium">Contact Information</h3>
+                      <Input
+                        placeholder="Email (optional)"
+                        value={sellerForm.email}
+                        onChange={(e) =>
+                          setSellerForm({ ...sellerForm, email: e.target.value })
+                        }
+                        data-testid="input-seller-email"
+                      />
+                      <Input
+                        placeholder="Phone (optional)"
+                        value={sellerForm.phone}
+                        onChange={(e) =>
+                          setSellerForm({ ...sellerForm, phone: e.target.value })
+                        }
+                        data-testid="input-seller-phone"
+                      />
+                      <Input
+                        placeholder="WhatsApp (optional)"
+                        value={sellerForm.whatsapp}
+                        onChange={(e) =>
+                          setSellerForm({ ...sellerForm, whatsapp: e.target.value })
+                        }
+                        data-testid="input-seller-whatsapp"
+                      />
+                      <Input
+                        placeholder="Discord (optional)"
+                        value={sellerForm.discord}
+                        onChange={(e) =>
+                          setSellerForm({ ...sellerForm, discord: e.target.value })
+                        }
+                        data-testid="input-seller-discord"
+                      />
+                      <Input
+                        placeholder="Website URL (optional)"
+                        value={sellerForm.website}
+                        onChange={(e) =>
+                          setSellerForm({ ...sellerForm, website: e.target.value })
+                        }
+                        data-testid="input-seller-website"
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="seller-featured"
+                        checked={sellerForm.featured}
+                        onCheckedChange={(checked) =>
+                          setSellerForm({ ...sellerForm, featured: checked as boolean })
+                        }
+                        data-testid="checkbox-seller-featured"
+                      />
+                      <label
+                        htmlFor="seller-featured"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Featured Seller
+                      </label>
+                    </div>
                     <Button
                       onClick={() => {
                         const data = {
                           name: sellerForm.name,
                           description: sellerForm.description,
+                          promotionText: sellerForm.promotionText,
                           images: sellerForm.images
                             ? sellerForm.images.split(',').map(url => url.trim())
                             : [],
@@ -1355,6 +1439,12 @@ export default function Admin() {
                                   };
                                 })
                             : [],
+                          email: sellerForm.email,
+                          phone: sellerForm.phone,
+                          whatsapp: sellerForm.whatsapp,
+                          discord: sellerForm.discord,
+                          website: sellerForm.website,
+                          featured: sellerForm.featured,
                         };
                         if (editingSeller) {
                           updateSellerMutation.mutate({ id: editingSeller.id, data });
@@ -1379,9 +1469,11 @@ export default function Admin() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Description</TableHead>
+                      <TableHead>Contact</TableHead>
                       <TableHead>Images</TableHead>
-                      <TableHead>Price Items</TableHead>
+                      <TableHead>Prices</TableHead>
                       <TableHead>Rating</TableHead>
+                      <TableHead>Featured</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1390,6 +1482,18 @@ export default function Admin() {
                       <TableRow key={seller.id} data-testid={`seller-row-${seller.id}`}>
                         <TableCell className="font-medium">{seller.name}</TableCell>
                         <TableCell className="max-w-xs truncate">{seller.description}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {seller.email && <Badge variant="outline" className="text-xs">Email</Badge>}
+                            {seller.phone && <Badge variant="outline" className="text-xs">Phone</Badge>}
+                            {seller.whatsapp && <Badge variant="outline" className="text-xs">WhatsApp</Badge>}
+                            {seller.discord && <Badge variant="outline" className="text-xs">Discord</Badge>}
+                            {seller.website && <Badge variant="outline" className="text-xs">Website</Badge>}
+                            {!seller.email && !seller.phone && !seller.whatsapp && !seller.discord && !seller.website && (
+                              <span className="text-xs text-muted-foreground">None</span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
                             {seller.images?.length || 0} images
@@ -1406,6 +1510,9 @@ export default function Admin() {
                             <span className="text-xs text-muted-foreground">({seller.totalReviews || 0})</span>
                           </div>
                         </TableCell>
+                        <TableCell>
+                          {seller.featured && <Badge variant="default" className="text-xs">Featured</Badge>}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
                             <Button
@@ -1418,6 +1525,13 @@ export default function Admin() {
                                   description: seller.description || "",
                                   images: seller.images?.join(', ') || "",
                                   prices: seller.prices?.map((p: any) => `${p.item}:${p.price}`).join('\n') || "",
+                                  email: seller.email || "",
+                                  phone: seller.phone || "",
+                                  whatsapp: seller.whatsapp || "",
+                                  discord: seller.discord || "",
+                                  website: seller.website || "",
+                                  featured: seller.featured || false,
+                                  promotionText: seller.promotionText || "",
                                 });
                                 setIsCreatingSeller(true);
                               }}
@@ -1442,7 +1556,7 @@ export default function Admin() {
                     ))}
                     {(!sellers || sellers.length === 0) && (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                           No sellers found. Create your first seller to get started.
                         </TableCell>
                       </TableRow>

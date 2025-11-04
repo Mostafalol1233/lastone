@@ -19,6 +19,7 @@ import GraveGames from "@/pages/GraveGames";
 import Category from "@/pages/Category";
 import CategoryNews from "@/pages/CategoryNews";
 import Reviews from "@/pages/Reviews";
+import Sellers from "@/pages/Sellers";
 import Admin from "@/pages/Admin";
 import AdminLogin from "@/pages/AdminLogin";
 import Support from "@/pages/Support";
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/category/:category" component={Category} />
       <Route path="/category/news" component={CategoryNews} />
       <Route path="/reviews" component={Reviews} />
+      <Route path="/sellers" component={Sellers} />
       <Route path="/news" component={News} />
       <Route path="/news/:id" component={NewsDetail} />
       <Route path="/events/:id" component={EventDetail} />
