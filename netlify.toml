@@ -4,14 +4,15 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "https://your-backend-url.katabump.com/api/:splat"
+  to = "https://server.x-host.cloud:25539/api/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/assets/*"
-  to = "/assets/:splat"
+  to = "https://server.x-host.cloud:25539/assets/:splat"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/*"
