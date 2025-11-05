@@ -2,36 +2,32 @@
   publish = "dist/public"
   command = "npm run build"
 
+[dev]
+  command = "npm run dev"
+  port = 5173
+
 # Headers for static assets
 [[headers]]
-  for = "/assets/*"
+  for = "/assets/*.css"
   [headers.values]
+    Content-Type = "text/css"
     Cache-Control = "public, max-age=31536000, immutable"
-    Content-Type = "text/css" # For CSS files
 
 [[headers]]
-  for = "/*.js"
+  for = "/assets/*.js"
   [headers.values]
     Content-Type = "application/javascript"
     Cache-Control = "public, max-age=31536000, immutable"
 
-# API redirects
+# API redirects only - no asset redirects
 [[redirects]]
   from = "/api/*"
   to = "https://panel.arabdevs.xyz/server/aa10fd22/api/:splat"
   status = 200
   force = true
 
-# Asset redirects
-[[redirects]]
-  from = "/assets/*"
-  to = "https://panel.arabdevs.xyz/server/aa10fd22/assets/:splat"
-  status = 200
-  force = true
-
-# SPA fallback - this should be last
+# SPA fallback - must be last
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  force = false # Don't force redirect for static assets
