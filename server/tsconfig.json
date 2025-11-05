@@ -4,7 +4,7 @@
     "noEmit": false,
     "module": "ESNext",
     "outDir": "../dist",
-    "rootDir": ".",
+    "rootDir": "..",
     "allowJs": true,
     "moduleResolution": "node",
     "allowImportingTsExtensions": false

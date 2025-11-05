@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { insertPostSchema, insertCommentSchema, insertEventSchema, insertNewsSchema, insertTicketSchema, insertTicketReplySchema, insertAdminSchema, insertNewsletterSubscriberSchema, insertSellerSchema, insertSellerReviewSchema } from "@shared/mongodb-schema";
 import { generateToken, verifyAdminPassword, requireAuth, requireSuperAdmin, requireAdminOrTicketManager, comparePassword, hashPassword } from "./utils/auth";
@@ -764,9 +764,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const reviewLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 1,
-    // Use ipKeyGenerator helper to support IPv6 addresses correctly
-    keyGenerator: (req) => `${ipKeyGenerator(req)}:${req.params.id}`,
-    handler: (req, res /*, next */) => {
+    // Generate a key per IP + seller id. Use a safe accessor and cast to any to avoid TS mismatches.
+    keyGenerator: (req: any) => {
+      // Prefer express's req.ip, fall back to x-forwarded-for or connection remote address
+      const ip = req.ip || (req.headers && (req.headers['x-forwarded-for'] || req.connection?.remoteAddress)) || 'unknown';
+      const sellerId = req.params?.id || '';
+      return `${ip}:${sellerId}`;
+    },
+    handler: (_req, res /*, next */) => {
       res.status(429).json({ error: 'Too many reviews from this IP for this seller. Try again later.' });
     },
     standardHeaders: true,
