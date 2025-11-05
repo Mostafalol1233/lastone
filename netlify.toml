@@ -22,9 +22,11 @@
 # API redirects only - no asset redirects
 [[redirects]]
   from = "/api/*"
-  to = "http://Ram32:1043/api/:splat"
+  to = "http://51.75.118.151:20032/api/:splat"
   status = 200
   force = true
+  headers = {Access-Control-Allow-Origin = "*"}
+  
 
 # SPA fallback - must be last
 [[redirects]]
