@@ -22,7 +22,7 @@
 # API redirects only - no asset redirects
 [[redirects]]
   from = "/api/*"
-  to = "https://panel.arabdevs.xyz/server/aa10fd22/api/:splat"
+  to = "http://Ram32:1043/api/:splat"
   status = 200
   force = true
 
