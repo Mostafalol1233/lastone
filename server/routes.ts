@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { storage } from "./storage";
 import { insertPostSchema, insertCommentSchema, insertEventSchema, insertNewsSchema, insertTicketSchema, insertTicketReplySchema, insertAdminSchema, insertNewsletterSubscriberSchema, insertSellerSchema, insertSellerReviewSchema } from "@shared/mongodb-schema";
 import { generateToken, verifyAdminPassword, requireAuth, requireSuperAdmin, requireAdminOrTicketManager, comparePassword, hashPassword } from "./utils/auth";
@@ -760,14 +760,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sellers/:id/reviews", async (req, res) => {
+  // Limit reviews to 1 per IP per seller per hour to reduce spam
+  const reviewLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 1,
+    // Use ipKeyGenerator helper to support IPv6 addresses correctly
+    keyGenerator: (req) => `${ipKeyGenerator(req)}:${req.params.id}`,
+    handler: (req, res /*, next */) => {
+      res.status(429).json({ error: 'Too many reviews from this IP for this seller. Try again later.' });
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.post("/api/sellers/:id/reviews", reviewLimiter, async (req, res) => {
     try {
       const data = insertSellerReviewSchema.parse({
         ...req.body,
         sellerId: req.params.id,
       });
+      // Prevent multiple reviews by the same userName for the same seller
+      const existing = await storage.getSellerReviews(req.params.id);
+      const exists = existing.some((r) => (r.userName || '').toLowerCase() === (data.userName || '').toLowerCase());
+      if (exists) {
+        return res.status(400).json({ error: 'You have already reviewed this seller' });
+      }
+
       const review = await storage.createSellerReview(data);
       res.json(review);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Allow admins to delete a seller review
+  app.delete("/api/sellers/:id/reviews/:reviewId", requireAuth, requireAdminOrTicketManager, async (req, res) => {
+    try {
+      const { reviewId } = req.params;
+      const deleted = await storage.deleteSellerReview(reviewId);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Review not found' });
+      }
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

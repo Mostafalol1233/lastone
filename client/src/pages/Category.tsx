@@ -16,9 +16,12 @@ export default function Category() {
 
   const filteredArticles = useMemo(() => {
     if (!category) return [];
-    
+    // normalize categories (case-insensitive, trim, treat singular/plural as equal)
+    const normalize = (s: string) => (s || "").toLowerCase().trim().replace(/s$/, "");
+    const target = normalize(category);
+
     return allPosts.filter((article) => {
-      return article.category.toLowerCase() === category.toLowerCase();
+      return normalize(article.category) === target;
     });
   }, [allPosts, category]);
 

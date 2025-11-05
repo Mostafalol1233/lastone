@@ -30,8 +30,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/category/:category" component={Category} />
-      <Route path="/category/news" component={CategoryNews} />
+  <Route path="/category/news" component={CategoryNews} />
+  <Route path="/events" component={Category} />
+  <Route path="/category/:category" component={Category} />
       <Route path="/reviews" component={Reviews} />
       <Route path="/sellers" component={Sellers} />
       <Route path="/news" component={News} />

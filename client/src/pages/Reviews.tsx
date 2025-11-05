@@ -9,6 +9,7 @@ import { Star, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLanguage } from "@/components/LanguageProvider";
+import { Trash } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -119,6 +120,22 @@ export default function Reviews() {
     );
   };
 
+  function parseJwt(token: string | null) {
+    if (!token) return null;
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+      const payload = JSON.parse(atob(parts[1]));
+      return payload;
+    } catch {
+      return null;
+    }
+  }
+
+  const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
+  const jwtPayload = parseJwt(adminToken);
+  const isAdmin = jwtPayload && ['super_admin', 'admin', 'ticket_manager'].includes(jwtPayload.role);
+
   return (
     <div className="min-h-screen bg-background py-12 md:py-20">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -142,14 +159,16 @@ export default function Reviews() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {seller.images.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {seller.images.slice(0, 2).map((image, idx) => (
-                      <img
-                        key={idx}
-                        src={image}
-                        alt={`${seller.name} ${idx + 1}`}
-                        className="w-full h-32 object-cover rounded-md"
-                      />
+                      <div key={idx} className="flex items-center justify-center">
+                        <img
+                          src={image}
+                          alt={`${seller.name} ${idx + 1}`}
+                          className="max-h-72 max-w-[360px] w-full object-cover rounded-md bg-muted/30"
+                          data-testid={`img-seller-${seller.id}-${idx}`}
+                        />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -161,18 +180,21 @@ export default function Reviews() {
                   <span className="text-sm font-medium">{seller.averageRating.toFixed(1)}</span>
                 </div>
 
-                {seller.prices.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Sample Prices:</p>
-                    {seller.prices.slice(0, 3).map((price, idx) => (
-                      <div key={idx} className="text-xs text-muted-foreground flex justify-between">
-                        <span>{price.item}</span>
-                        <span className="font-medium">${price.price}</span>
+                {seller.images.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {seller.images.slice(0, 2).map((image, idx) => (
+                      <div key={idx} className="flex items-center justify-center">
+                        <div className="w-full max-w-[360px] h-48 overflow-hidden rounded-md bg-muted/30">
+                          <img
+                            src={image}
+                            alt={`${seller.name} ${idx + 1}`}
+                            className="w-full h-full object-cover object-center"
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
-
                 <Dialog open={selectedSeller?.id === seller.id} onOpenChange={(open) => !open && setSelectedSeller(null)}>
                   <DialogTrigger asChild>
                     <Button
@@ -185,14 +207,12 @@ export default function Reviews() {
                   </DialogTrigger>
                   <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Review {seller.name}</DialogTitle>
-                    </DialogHeader>
-                    
-                    <div className="space-y-6">
-                      <div className="space-y-4">
-                        <h3 className="font-semibold">Submit Your Review</h3>
-                        
-                        <div className="space-y-2">
+              <DialogTitle>Review {seller.name}</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="font-semibold">Review for {seller.name}</h3>                        <div className="space-y-2">
                           <label className="text-sm font-medium">Your Name</label>
                           <Input
                             value={reviewForm.userName}
@@ -241,7 +261,9 @@ export default function Reviews() {
                                       <User className="h-4 w-4" />
                                       <span className="font-medium">{review.userName}</span>
                                     </div>
-                                    {renderStars(review.rating)}
+                                    <div className="flex items-center gap-2">
+                                      {renderStars(review.rating)}
+                                    </div>
                                   </div>
                                   {review.comment && (
                                     <p className="text-sm text-muted-foreground">{review.comment}</p>

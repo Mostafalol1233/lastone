@@ -59,7 +59,7 @@ function CommentItem({
           <div className="flex gap-4">
             <Avatar className="h-10 w-10 flex-shrink-0">
               <AvatarFallback>
-                {comment.name.slice(0, 2).toUpperCase()}
+                {(comment.name || '').slice(0, 2).toUpperCase() || 'U'}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">

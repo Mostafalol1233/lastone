@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
 import { useLanguage } from "./LanguageProvider";
 import { useState } from "react";
-import logoImage from "@assets/generated_images/Bimora_favicon_icon_f416a2cf.png";
+import logoLightImage from "@assets/generated_images/Bimora_favicon_icon_f416a2cf.png";
+// If you add a dark-mode black logo, place it at the path below.
+// For now, fall back to the light logo so the dev server doesn't break when the file is missing.
+const logoDarkImage = logoLightImage;
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
@@ -15,8 +18,6 @@ export function Header() {
   const navItems = [
     { path: "/", label: t("home") },
     { path: "/news", label: t("news") },
-    { path: "/reviews", label: t("reviews") },
-    { path: "/category/tutorials", label: t("tutorials") },
     { path: "/category/events", label: t("events") },
     { path: "/sellers", label: "Sellers" },
     { path: "/mercenaries", label: "Mercenaries" },
@@ -31,7 +32,7 @@ export function Header() {
         <div className="flex h-16 md:h-20 items-center justify-between gap-4">
           <Link href="/" className="flex items-center space-x-2" data-testid="link-logo">
             <img 
-              src={logoImage} 
+                src={theme === 'dark' ? logoDarkImage : logoLightImage}
               alt="Bimora Gaming Blog" 
               className="h-10 md:h-12 w-auto object-contain"
               data-testid="img-logo"

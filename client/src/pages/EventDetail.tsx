@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, ArrowLeft, Languages } from "lucide-react";
 import { useState } from "react";
+import createDOMPurify from "dompurify";
 
 interface Event {
   id: string;
@@ -19,19 +20,49 @@ interface Event {
 }
 
 export default function EventDetail() {
-  const { id } = useParams<{ id: string }>();
+  // wouter's useParams can be untyped in some versions; read params then cast safely
+  const params = useParams();
+  const id = params?.id as string | undefined;
   const [, setLocation] = useLocation();
   const { t } = useLanguage();
+  const [error, setError] = useState<Error | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
 
   const { data: event, isLoading } = useQuery<Event>({
-    queryKey: ["/api/events", id],
+    queryKey: ["event", id],
+    enabled: !!id,
+    retry: 1,
+    queryFn: async () => {
+      if (!id) throw new Error("No event ID provided");
+      const res = await fetch(`/api/events/${id}`);
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => "Unknown error");
+        throw new Error(`Failed to load event: ${res.status} ${errorText}`);
+      }
+      return res.json();
+    },
+    onError: (err) => setError(err as Error),
   });
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg text-muted-foreground">{t("loading")}</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold mb-4">Error Loading Event</h2>
+          <p className="text-muted-foreground mb-4">Sorry, there was a problem loading this event.</p>
+          <Button onClick={() => setLocation("/")} data-testid="button-back-home">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {t("backToHome")}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -53,6 +84,8 @@ export default function EventDetail() {
   const title = showTranslation && event.titleAr ? event.titleAr : event.title;
   const description = showTranslation && event.descriptionAr ? event.descriptionAr : event.description;
   const hasTranslation = event.titleAr || event.descriptionAr;
+
+  // restored: render description as raw HTML like earlier behavior
 
   return (
     <div className="min-h-screen bg-background">
@@ -115,7 +148,8 @@ export default function EventDetail() {
               {description && (
                 <div 
                   className="prose prose-lg dark:prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: description }}
+                  // createDOMPurify returns a DOMPurify instance bound to the window
+                  dangerouslySetInnerHTML={{ __html: createDOMPurify(window as unknown as Window).sanitize(description) }}
                   data-testid="text-description"
                 />
               )}

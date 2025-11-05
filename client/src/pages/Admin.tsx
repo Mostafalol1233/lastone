@@ -54,6 +54,8 @@ import {
   LifeBuoy,
   Shield,
   Store,
+  Star,
+  User,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import ReactQuill from "react-quill";
@@ -81,6 +83,12 @@ export default function Admin() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // Reviews management (super_admin only)
+  const [reviewsDialogOpen, setReviewsDialogOpen] = useState(false);
+  const [activeSellerForReviews, setActiveSellerForReviews] = useState<any | null>(null);
+  const [sellerReviews, setSellerReviews] = useState<any[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -1542,27 +1550,52 @@ export default function Admin() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => {
-                                setEditingSeller(seller);
-                                setSellerForm({
-                                  name: seller.name,
-                                  description: seller.description || "",
-                                  images: seller.images?.join(', ') || "",
-                                  prices: seller.prices?.map((p: any) => `${p.item}:${p.price}`).join('\n') || "",
-                                  email: seller.email || "",
-                                  phone: seller.phone || "",
-                                  whatsapp: seller.whatsapp || "",
-                                  discord: seller.discord || "",
-                                  website: seller.website || "",
-                                  featured: seller.featured || false,
-                                  promotionText: seller.promotionText || "",
-                                });
-                                setIsCreatingSeller(true);
-                              }}
+                                  onClick={() => {
+                                    setEditingSeller(seller);
+                                    setSellerForm({
+                                      name: seller.name,
+                                      description: seller.description || "",
+                                      images: seller.images?.join(', ') || "",
+                                      prices: seller.prices?.map((p: any) => `${p.item}:${p.price}`).join('\n') || "",
+                                      email: seller.email || "",
+                                      phone: seller.phone || "",
+                                      whatsapp: seller.whatsapp || "",
+                                      discord: seller.discord || "",
+                                      website: seller.website || "",
+                                      featured: seller.featured || false,
+                                      promotionText: seller.promotionText || "",
+                                    });
+                                    setIsCreatingSeller(true);
+                                  }}
                               data-testid={`button-edit-seller-${seller.id}`}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
+                                {isSuperAdmin && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={async () => {
+                                      // open reviews dialog and load reviews for this seller
+                                      setActiveSellerForReviews(seller);
+                                      setReviewsDialogOpen(true);
+                                      setLoadingReviews(true);
+                                      try {
+                                        const data = await apiRequest(`/api/sellers/${seller.id}/reviews`, 'GET');
+                                        setSellerReviews(data || []);
+                                      } catch (err: any) {
+                                        toast({ title: 'Failed to load reviews', description: err?.message, variant: 'destructive' });
+                                        setSellerReviews([]);
+                                      } finally {
+                                        setLoadingReviews(false);
+                                      }
+                                    }}
+                                    title="Manage reviews"
+                                    data-testid={`button-manage-reviews-${seller.id}`}
+                                  >
+                                    <MessageSquare className="h-4 w-4" />
+                                  </Button>
+                                )}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1976,6 +2009,67 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={reviewsDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setReviewsDialogOpen(false);
+          setActiveSellerForReviews(null);
+          setSellerReviews([]);
+        }
+      }}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Reviews for {activeSellerForReviews?.name}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            {loadingReviews ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : sellerReviews.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No reviews for this seller.</p>
+            ) : (
+              <div className="space-y-3">
+                {sellerReviews.map((review: any) => (
+                  <Card key={review.id}>
+                    <CardContent className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span className="font-medium">{review.userName}</span>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">{Array.from({length: review.rating}).map((_,i)=> (<Star key={i} className="h-4 w-4 text-yellow-400 inline-block"/>))} <span className="ml-2 text-xs">{review.rating}</span></div>
+                        {review.comment && <p className="mt-2 text-sm text-muted-foreground">{review.comment}</p>}
+                        <p className="text-xs text-muted-foreground mt-2">{new Date(review.createdAt).toLocaleString()}</p>
+                      </div>
+                      <div className="flex items-start">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={async () => {
+                            if (!activeSellerForReviews) return;
+                            try {
+                              await apiRequest(`/api/sellers/${activeSellerForReviews.id}/reviews/${review.id}`, 'DELETE');
+                              setSellerReviews((prev) => prev.filter((r) => r.id !== review.id));
+                              queryClient.invalidateQueries({ queryKey: ['/api/sellers'] });
+                              queryClient.invalidateQueries({ queryKey: [`/api/sellers/${activeSellerForReviews.id}/reviews`] });
+                              toast({ title: 'Review deleted' });
+                            } catch (err: any) {
+                              toast({ title: 'Delete failed', description: err?.message, variant: 'destructive' });
+                            }
+                          }}
+                          data-testid={`admin-delete-review-${review.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteConfirmId !== null} onOpenChange={(open) => {
         if (!open) {

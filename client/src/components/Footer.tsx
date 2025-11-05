@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLanguage } from "./LanguageProvider";
-import { SiGithub, SiX, SiLinkedin } from "react-icons/si";
+import { SiX, SiYoutube } from "react-icons/si";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -55,7 +55,7 @@ export function Footer() {
 
   const categories = [
     { label: t("news"), path: "/category/news" },
-    { label: t("reviews"), path: "/category/reviews" },
+    { label: t("reviews"), path: "/reviews" },
     { label: t("tutorials"), path: "/category/tutorials" },
     { label: t("events"), path: "/category/events" },
   ];
@@ -147,31 +147,22 @@ export function Footer() {
 
           <div className="flex items-center gap-4">
             <a
-              href="https://github.com"
+                href="https://www.youtube.com/@Bemora-site"
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground transition-colors"
-              data-testid="link-social-github"
+                data-testid="link-social-youtube"
             >
-              <SiGithub className="h-5 w-5" />
+                <SiYoutube className="h-5 w-5" />
             </a>
             <a
-              href="https://x.com"
+                href="https://twitter.com/Bemora_BEMO"
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground transition-colors"
               data-testid="link-social-x"
             >
               <SiX className="h-5 w-5" />
-            </a>
-            <a
-              href="https://linkedin.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              data-testid="link-social-linkedin"
-            >
-              <SiLinkedin className="h-5 w-5" />
             </a>
           </div>
         </div>

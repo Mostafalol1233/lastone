@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { HeroSection } from "@/components/HeroSection";
 import { ArticleCard, type Article } from "@/components/ArticleCard";
 import { EventsRibbon, type Event } from "@/components/EventsRibbon";
@@ -19,6 +20,10 @@ export default function Home() {
 
   const { data: allEvents = [] } = useQuery<Event[]>({
     queryKey: ["/api/events"],
+  });
+
+  const { data: allNews = [] } = useQuery<any[]>({
+    queryKey: ["/api/news"],
   });
 
   const heroPost = allPosts.find((p) => p.featured) || {
@@ -132,6 +137,40 @@ export default function Home() {
                 {filteredArticles.map((article) => (
                   <ArticleCard key={article.id} article={article} />
                 ))}
+              </div>
+            )}
+
+            {/* News section (show latest news on main page) */}
+            {allNews.length > 0 && (
+              <div className="space-y-4 pt-12">
+                <h2 className="text-2xl md:text-3xl font-semibold">{t("news")}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {allNews.slice(0, 6).map((item: any) => (
+                    <Link key={item.id} href={`/news/${item.id}`} className="block" data-testid={`home-news-${item.id}`}>
+                      <div className="hover-elevate transition-all bg-card rounded-lg overflow-hidden">
+                        <div className="relative aspect-[16/9] overflow-hidden">
+                          <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-semibold line-clamp-2">{item.title}</h3>
+                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{item.content?.substring(0, 120) || ''}...</p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Latest Reviews posts (posts with category 'Reviews') */}
+            {allPosts.some(p => ((p.category || '').toLowerCase().trim().replace(/s$/, '')) === 'review') && (
+              <div className="space-y-4 pt-12">
+                <h2 className="text-2xl md:text-3xl font-semibold">{t("reviews")}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                  {allPosts.filter(p => ((p.category || '').toLowerCase().trim().replace(/s$/, '')) === 'review').slice(0,4).map((article) => (
+                    <ArticleCard key={article.id} article={article} />
+                  ))}
+                </div>
               </div>
             )}
           </main>

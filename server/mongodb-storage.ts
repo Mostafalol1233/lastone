@@ -116,6 +116,7 @@ export interface IStorage {
 
   getSellerReviews(sellerId: string): Promise<SellerReview[]>;
   createSellerReview(review: InsertSellerReview): Promise<SellerReview>;
+  deleteSellerReview(reviewId: string): Promise<boolean>;
   updateSellerRating(sellerId: string): Promise<void>;
 }
 
@@ -126,7 +127,14 @@ export class MongoDBStorage implements IStorage {
   constructor() {
     this.mercenaries = new Map();
     this.initializeMercenaries();
-    this.connect();
+    // Note: do NOT call connect() here to avoid unhandled promise rejections
+    // during module initialization. Call initialize() explicitly to connect.
+  }
+
+  // Call this to establish the MongoDB connection. Separated from the
+  // constructor so callers can catch connection failures and fall back.
+  public async initialize() {
+    await this.connect();
   }
 
   private async connect() {
@@ -549,6 +557,14 @@ export class MongoDBStorage implements IStorage {
       ...lean,
       id: String(lean._id),
     } as any;
+  }
+
+  async deleteSellerReview(reviewId: string): Promise<boolean> {
+    const review = await SellerReviewModel.findByIdAndDelete(reviewId);
+    if (!review) return false;
+    // Update the seller rating after deletion
+    await this.updateSellerRating(review.sellerId);
+    return true;
   }
 
   async updateSellerRating(sellerId: string): Promise<void> {

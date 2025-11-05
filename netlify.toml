@@ -4,13 +4,13 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "http://lol.x-host.cloud:25539/api/:splat"
+  to = "https://panel.arabdevs.xyz/server/aa10fd22/api/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/assets/*"
-  to = "http://lol.x-host.cloud:25539/assets/:splat"
+  to = "https://panel.arabdevs.xyz/server/aa10fd22/assets/:splat"
   status = 200
   force = true
 

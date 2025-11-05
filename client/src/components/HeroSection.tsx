@@ -3,7 +3,9 @@ import { Clock, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "./LanguageProvider";
-import heroImage from "@assets/crossfire-hero-bg.jpg";
+// Define background URL directly to avoid import issues
+const bgImage = "https://files.catbox.moe/16kyiz.jpg";
+const fallbackImage = "/attached_assets/feature-crossfire.jpg";
 
 interface HeroPost {
   id: string;
@@ -27,8 +29,11 @@ export function HeroSection({ post }: HeroSectionProps) {
   return (
     <section className="relative min-h-[70vh] md:min-h-[80vh] w-full overflow-hidden">
       <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: `url(${heroImage})` }}
+        className="absolute inset-0 bg-cover bg-center bg-black/20"
+        style={{ backgroundImage: `url(${bgImage}), url(${fallbackImage})` }}
+        onError={(e: any) => {
+          e.target.style.backgroundImage = `url(${fallbackImage})`;
+        }}
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-background" />
       

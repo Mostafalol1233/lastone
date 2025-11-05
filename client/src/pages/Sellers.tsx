@@ -80,13 +80,14 @@ export default function Sellers() {
       </CardHeader>
       <CardContent className="space-y-4">
         {seller.images.length > 0 && (
-          <div className="grid grid-cols-2 gap-2">
-            {seller.images.slice(0, 4).map((image, idx) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {seller.images.slice(0, 2).map((image, idx) => (
               <div key={idx} className="flex items-center justify-center">
                 <img
                   src={image}
                   alt={`${seller.name} ${idx + 1}`}
-                  className="w-full h-48 object-contain rounded-md bg-muted/30"
+                  // center and make the image itself bigger while keeping aspect ratio
+                  className="max-h-72 max-w-[360px] w-full object-cover rounded-md bg-muted/30"
                   data-testid={`img-seller-${seller.id}-${idx}`}
                 />
               </div>
@@ -214,7 +215,7 @@ export default function Sellers() {
                         <img
                           src={image}
                           alt={`${selectedSeller.name} ${idx + 1}`}
-                          className="w-full h-64 object-contain rounded-md bg-muted/30"
+                          className="max-h-[520px] max-w-full object-contain rounded-md bg-muted/30"
                           data-testid={`dialog-img-seller-${selectedSeller.id}-${idx}`}
                         />
                       </div>
@@ -332,6 +333,18 @@ export default function Sellers() {
                   {!selectedSeller.email && !selectedSeller.phone && !selectedSeller.whatsapp && !selectedSeller.discord && !selectedSeller.website && (
                     <p className="text-sm text-muted-foreground">No contact information available</p>
                   )}
+                </div>
+
+                <div className="mt-4">
+                  <Button
+                    variant="default"
+                    className="w-full"
+                    onClick={() => {
+                      window.location.href = `/reviews?seller=${selectedSeller.id}`;
+                    }}
+                  >
+                    View All Reviews
+                  </Button>
                 </div>
               </div>
             </div>

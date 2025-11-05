@@ -20,7 +20,6 @@ export function CategoryFilter({
   const categories: Category[] = [
     "all",
     "news",
-    "reviews",
     "tutorials",
     "events",
   ];
@@ -29,7 +28,11 @@ export function CategoryFilter({
     return (
       <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
         {categories.map((category) => (
-          <Link key={category} href={category === "all" ? "/" : `/category/${category}`}>
+          <Link key={category} href={
+            category === "all" ? "/" : 
+            category === "events" ? "/events" :
+            `/category/${category}`
+          }>
             <Button
               variant={activeCategory === category ? "default" : "outline"}
               size="sm"
