@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { storage } from "./storage";
 import { insertPostSchema, insertCommentSchema, insertEventSchema, insertNewsSchema, insertTicketSchema, insertTicketReplySchema, insertAdminSchema, insertNewsletterSubscriberSchema, insertSellerSchema, insertSellerReviewSchema } from "@shared/mongodb-schema";
 import { generateToken, verifyAdminPassword, requireAuth, requireSuperAdmin, requireAdminOrTicketManager, comparePassword, hashPassword } from "./utils/auth";
@@ -244,6 +244,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
+  });
+
+  // Health check for load balancers / Netlify proxy
+  app.get('/api/health', (_req, res) => {
+    res.json({ ok: true, time: Date.now() });
   });
 
   app.post("/api/events", requireAuth, async (req, res) => {
@@ -765,9 +770,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 1,
     // Generate a key per IP + seller id. Use a safe accessor and cast to any to avoid TS mismatches.
+    // Use express-rate-limit's ipKeyGenerator to correctly handle IPv6 and forwarded headers.
     keyGenerator: (req: any) => {
-      // Prefer express's req.ip, fall back to x-forwarded-for or connection remote address
-      const ip = req.ip || (req.headers && (req.headers['x-forwarded-for'] || req.connection?.remoteAddress)) || 'unknown';
+      const ip = (ipKeyGenerator as any)(req) || 'unknown';
       const sellerId = req.params?.id || '';
       return `${ip}:${sellerId}`;
     },
